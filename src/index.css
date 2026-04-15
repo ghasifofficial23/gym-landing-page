@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-rival-green: #CCF57C;
-  --color-rival-dark: #101710;
-  --color-rival-charcoal: #1A201A;
-  --color-rival-muted: #2A302A;
+  --color-benny-green: #CCF57C;
+  --color-benny-dark: #101710;
+  --color-benny-charcoal: #1A201A;
+  --color-benny-muted: #2A302A;
   
   --font-display: "Outfit", sans-serif;
   --font-serif: "Fraunces", serif;
@@ -12,7 +12,7 @@
 
 @layer base {
   body {
-    @apply bg-rival-dark text-white font-sans;
+    @apply bg-benny-dark text-white font-sans;
   }
 }
 
@@ -26,12 +26,30 @@
   }
 
   .btn-primary {
-    @apply px-8 py-4 bg-rival-green text-rival-dark font-bold rounded-full transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_rgba(204,245,124,0.4)];
+    @apply px-8 py-4 bg-benny-green text-benny-dark font-bold rounded-full transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_rgba(204,245,124,0.4)];
   }
 
   .btn-outline {
-    @apply px-8 py-4 bg-transparent border-2 border-rival-green text-rival-green font-bold rounded-full transition-all duration-300 hover:bg-rival-green hover:text-rival-dark;
+    @apply px-8 py-4 bg-transparent border-2 border-benny-green text-benny-green font-bold rounded-full transition-all duration-300 hover:bg-benny-green hover:text-benny-dark;
   }
+}
+
+/* Infinite Scroll Animation */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-250px * 6));
+  }
+}
+
+.animate-scroll {
+  animation: scroll 30s linear infinite;
+}
+
+.animate-scroll:hover {
+  animation-play-state: paused;
 }
 
 /* Custom Scrollbar */
