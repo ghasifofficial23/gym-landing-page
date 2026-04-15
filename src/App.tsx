@@ -175,11 +175,7 @@ const Testimonials = () => {
 const App = () => {
   const [formStatus, setFormStatus] = useState<'idle' | 'loading' | 'success'>('idle');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormStatus('loading');
-    setTimeout(() => setFormStatus('success'), 1500);
-  };
+  // Form state handler is now handled inline in the form component
 
   return (
     <div className="min-h-screen selection:bg-benny-green selection:text-benny-dark">
@@ -272,7 +268,7 @@ const App = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-          {['Core Performance', 'Elite Biological'].map((plan, i) => (
+          {['Core Performance', 'Elite Biological'].map((_, i) => (
             <div key={i} className={`glass p-12 rounded-[40px] flex flex-col border ${i === 1 ? 'border-benny-green bg-benny-green/5' : 'border-white/10'}`}>
               <div className="flex justify-between items-start mb-8">
                 <div>
