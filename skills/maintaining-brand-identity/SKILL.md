@@ -5,7 +5,7 @@ description: Provides the single source of truth for brand guidelines, design to
 
 # Brand Identity & Guidelines
 
-**Brand Name:** RIVAL™
+**Brand Name:** BENNY™
 
 This skill defines the core constraints for visual design and technical implementation for the brand. You must adhere to these guidelines strictly to maintain consistency.
 
