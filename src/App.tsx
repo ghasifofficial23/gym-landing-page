@@ -293,7 +293,7 @@ const App = () => {
                   </li>
                 ))}
               </ul>
-              <button className={`w-full ${i === 1 ? 'btn-primary' : 'btn-outline'} py-4`}>Apply Now</button>
+              <a href="#contact" className={`w-full ${i === 1 ? 'btn-primary' : 'btn-outline'} py-4 text-center`}>Apply Now</a>
             </div>
           ))}
         </div>
@@ -330,7 +330,7 @@ const App = () => {
               </motion.div>
             ) : (
               <form 
-                action="https://formspree.io/f/ghasifofficial23@gmail.com"
+                action="https://formspree.io/f/meevepbv"
                 method="POST"
                 onSubmit={(e) => {
                   e.preventDefault();
