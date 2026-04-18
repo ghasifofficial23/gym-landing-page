@@ -13,8 +13,12 @@ import {
   Phone,
   MapPin,
   Menu,
-  X
+  X,
+  CreditCard,
+  QrCode,
+  MessageCircle
 } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 // --- Components ---
 
@@ -174,6 +178,16 @@ const Testimonials = () => {
 
 const App = () => {
   const [formStatus, setFormStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [view, setView] = useState<'landing' | 'payment'>('landing');
+
+  const handlePlanSelect = (plan: string) => {
+    setSelectedPlan(plan);
+    const contactSection = document.getElementById('contact');
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   // Form state handler is now handled inline in the form component
 
@@ -268,15 +282,18 @@ const App = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-          {['Core Performance', 'Elite Biological'].map((_, i) => (
-            <div key={i} className={`glass p-12 rounded-[40px] flex flex-col border ${i === 1 ? 'border-benny-green bg-benny-green/5' : 'border-white/10'}`}>
+          {[
+            { name: 'Simple Plan', price: '2000' },
+            { name: 'Cardio & Gym', price: '4000' }
+          ].map((plan, i) => (
+            <div key={i} className={`glass p-12 rounded-[40px] flex flex-col border ${selectedPlan === plan.name ? 'border-benny-green bg-benny-green/10' : i === 1 ? 'border-benny-green bg-benny-green/5' : 'border-white/10'}`}>
               <div className="flex justify-between items-start mb-8">
                 <div>
-                   <h3 className="text-2xl font-display font-bold uppercase mb-2">{i === 0 ? 'Simple Plan' : 'Cardio & Gym'}</h3>
+                   <h3 className="text-2xl font-display font-bold uppercase mb-2">{plan.name}</h3>
                    <p className="text-gray-400 text-sm">Monthly Investment</p>
                 </div>
                 <div className="text-3xl font-display font-bold text-benny-green">
-                  Rs. {i === 0 ? '2000' : '4000'}
+                  Rs. {plan.price}
                 </div>
               </div>
               <ul className="space-y-4 mb-12 flex-grow">
@@ -293,7 +310,12 @@ const App = () => {
                   </li>
                 ))}
               </ul>
-              <a href="#contact" className={`w-full ${i === 1 ? 'btn-primary' : 'btn-outline'} py-4 text-center`}>Apply Now</a>
+              <button 
+                onClick={() => handlePlanSelect(plan.name)}
+                className={`w-full ${i === 1 || selectedPlan === plan.name ? 'btn-primary' : 'btn-outline'} py-4 text-center`}
+              >
+                {selectedPlan === plan.name ? 'Plan Selected' : 'Apply Now'}
+              </button>
             </div>
           ))}
         </div>
@@ -316,7 +338,48 @@ const App = () => {
           </div>
           
           <div className="w-full md:w-1/2 p-12 md:p-20 bg-benny-charcoal/50">
-            {formStatus === 'success' ? (
+            {view === 'payment' ? (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-8"
+              >
+                <div className="flex items-center gap-4 text-benny-green mb-8">
+                  <div className="w-12 h-12 rounded-full glass flex items-center justify-center">
+                    <CreditCard size={24} />
+                  </div>
+                  <h3 className="text-2xl font-display font-bold uppercase">Payment Info</h3>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="p-6 glass border-white/10 rounded-2xl">
+                    <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Easypaisa / JazzCash</p>
+                    <p className="text-xl font-bold font-display">03126872248</p>
+                    <p className="text-sm text-benny-green mt-1">Beneficiary: BENNY GYM ADM</p>
+                  </div>
+                  
+                  <div className="p-6 glass border-white/10 rounded-2xl">
+                    <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Bank Transfer (HBL)</p>
+                    <p className="text-lg font-bold font-display">0042 7992 0001 0101</p>
+                    <p className="text-sm text-gray-400">BENNY BIOLOGICAL ALLIANCE</p>
+                  </div>
+                </div>
+
+                <div className="bg-benny-green/10 border border-benny-green/30 p-8 rounded-3xl text-center">
+                  <QrCode size={48} className="mx-auto mb-4 text-benny-green" />
+                  <h4 className="font-bold mb-2">Instant Verification</h4>
+                  <p className="text-sm text-gray-400 mb-6">Send the payment screenshot to our WhatsApp. Our AI will verify it instantly.</p>
+                  
+                  <a 
+                    href={`https://wa.me/923126872248?text=Hi Benny Gym, here is my payment screenshot for the ${selectedPlan} membership.`}
+                    target="_blank"
+                    className="btn-primary w-full flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={20} /> Send to WhatsApp
+                  </a>
+                </div>
+              </motion.div>
+            ) : formStatus === 'success' ? (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -325,35 +388,57 @@ const App = () => {
                 <div className="w-20 h-20 bg-benny-green rounded-full flex items-center justify-center mb-6 text-benny-dark">
                   <CheckCircle2 size={40} />
                 </div>
-                <h3 className="text-3xl font-display font-bold uppercase mb-2">Application Received</h3>
-                <p className="text-gray-400">A Bio-Architect will reach out within 4 hours.</p>
+                <h3 className="text-3xl font-display font-bold uppercase mb-2">Syncing Bio-Data...</h3>
+                <p className="text-gray-400">Taking you to the payment gateway.</p>
               </motion.div>
             ) : (
               <form 
-                action="https://formspree.io/f/meevepbv"
-                method="POST"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   setFormStatus('loading');
-                  const form = e.target as HTMLFormElement;
-                  fetch(form.action, {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: { 'Accept': 'application/json' }
-                  }).then(response => {
-                    if (response.ok) {
-                      setFormStatus('success');
-                    } else {
+                  const formData = new FormData(e.currentTarget);
+                  
+                  try {
+                    // 1. Save to Supabase
+                    const { error } = await supabase.from('members').insert([{
+                      full_name: formData.get('name'),
+                      email: formData.get('email'),
+                      whatsapp_num: formData.get('whatsapp'),
+                      plan_name: selectedPlan || 'General Application',
+                      goal: formData.get('goal'),
+                      status: 'pending'
+                    }]);
+
+                    if (error) throw error;
+
+                    // 2. Success state and redirect
+                    setFormStatus('success');
+                    setTimeout(() => {
+                      setView('payment');
                       setFormStatus('idle');
-                      alert('Something went wrong. Please try again.');
-                    }
-                  });
+                    }, 2000);
+
+                  } catch (err) {
+                    console.error(err);
+                    setFormStatus('idle');
+                    alert('Submission failed. Please check your connection.');
+                  }
                 }} 
-                className="space-y-8"
+                className="space-y-6"
               >
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Full Name</label>
-                  <input name="name" required type="text" className="w-full bg-white/5 border-b-2 border-white/10 p-4 outline-none focus:border-benny-green transition-colors font-display" placeholder="CHRIS BUMSTEAD" />
+                  <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Selected Plan</label>
+                  <input readOnly value={selectedPlan || 'Select a plan above'} className="w-full bg-benny-green/10 border-b-2 border-benny-green p-4 text-benny-green font-display font-bold outline-none cursor-default" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Full Name</label>
+                    <input name="name" required type="text" className="w-full bg-white/5 border-b-2 border-white/10 p-4 outline-none focus:border-benny-green transition-colors font-display" placeholder="CHRIS BUMSTEAD" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">WhatsApp Number</label>
+                    <input name="whatsapp" required type="tel" className="w-full bg-white/5 border-b-2 border-white/10 p-4 outline-none focus:border-benny-green transition-colors font-display" placeholder="03XXXXXXXXX" />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Email Address</label>
@@ -368,8 +453,8 @@ const App = () => {
                     <option className="bg-benny-dark">Elite Performance</option>
                   </select>
                 </div>
-                <button disabled={formStatus === 'loading'} className="w-full btn-primary py-5 uppercase tracking-widest disabled:opacity-50">
-                  {formStatus === 'loading' ? 'Encrypting Data...' : 'Submit Application'}
+                <button disabled={formStatus === 'loading' || !selectedPlan} className="w-full btn-primary py-5 uppercase tracking-widest disabled:opacity-50">
+                  {formStatus === 'loading' ? 'Encrypting Data...' : !selectedPlan ? 'Select a Plan First' : 'Submit Application'}
                 </button>
               </form>
             )}
