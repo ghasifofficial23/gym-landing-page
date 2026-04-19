@@ -40,15 +40,21 @@ export const AdminDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Form State
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    whatsapp_num: '',
-    plan_name: 'Simple Plan',
-    amount_paid: '',
-    expiry_date: '',
-    created_at: new Date().toISOString().split('T')[0],
-    status: 'active' as 'pending' | 'active' | 'expired'
+  const [formData, setFormData] = useState(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const expiry = new Date();
+    expiry.setMonth(expiry.getMonth() + 1);
+    
+    return {
+      full_name: '',
+      email: '',
+      whatsapp_num: '',
+      plan_name: 'Simple Plan',
+      amount_paid: '',
+      expiry_date: expiry.toISOString().split('T')[0],
+      created_at: today,
+      status: 'active' as 'pending' | 'active' | 'expired'
+    };
   });
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -120,14 +126,18 @@ export const AdminDashboard = () => {
   };
 
   const resetForm = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const expiry = new Date();
+    expiry.setMonth(expiry.getMonth() + 1);
+
     setFormData({
       full_name: '',
       email: '',
       whatsapp_num: '',
       plan_name: 'Simple Plan',
       amount_paid: '',
-      expiry_date: '',
-      created_at: new Date().toISOString().split('T')[0],
+      expiry_date: expiry.toISOString().split('T')[0],
+      created_at: today,
       status: 'active'
     });
     setEditingMemberId(null);
@@ -196,7 +206,7 @@ export const AdminDashboard = () => {
     if (amount === null) return;
 
     const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 30);
+    expiry.setMonth(expiry.getMonth() + 1);
 
     const { error } = await supabase
       .from('members')
@@ -216,7 +226,7 @@ export const AdminDashboard = () => {
     if (amount === null) return;
 
     const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 30);
+    expiry.setMonth(expiry.getMonth() + 1);
 
     const { error } = await supabase
       .from('members')
@@ -562,7 +572,16 @@ export const AdminDashboard = () => {
                     <input 
                       type="date" 
                       value={formData.created_at}
-                      onChange={(e) => setFormData({...formData, created_at: e.target.value})}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        const expiryDate = new Date(newDate);
+                        expiryDate.setMonth(expiryDate.getMonth() + 1);
+                        setFormData({
+                          ...formData, 
+                          created_at: newDate,
+                          expiry_date: expiryDate.toISOString().split('T')[0]
+                        });
+                      }}
                       className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
                     />
                   </div>
