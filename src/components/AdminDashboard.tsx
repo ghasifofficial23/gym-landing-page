@@ -11,7 +11,10 @@ import {
   DollarSign,
   MessageCircle,
   Plus,
-  X
+  X,
+  Edit2,
+  Trash2,
+  RefreshCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -47,6 +50,8 @@ export const AdminDashboard = () => {
     created_at: new Date().toISOString().split('T')[0],
     status: 'active' as 'pending' | 'active' | 'expired'
   });
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -108,19 +113,102 @@ export const AdminDashboard = () => {
       console.error(error);
     } else {
       setIsModalOpen(false);
-      setFormData({
-        full_name: '',
-        email: '',
-        whatsapp_num: '',
-        plan_name: 'Simple Plan',
-        amount_paid: '',
-        expiry_date: '',
-        created_at: new Date().toISOString().split('T')[0],
-        status: 'active'
-      });
+      resetForm();
       fetchMembers();
     }
     setLoading(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      full_name: '',
+      email: '',
+      whatsapp_num: '',
+      plan_name: 'Simple Plan',
+      amount_paid: '',
+      expiry_date: '',
+      created_at: new Date().toISOString().split('T')[0],
+      status: 'active'
+    });
+    setEditingMemberId(null);
+  };
+
+  const handleEditClick = (member: Member) => {
+    setFormData({
+      full_name: member.full_name,
+      email: member.email || '',
+      whatsapp_num: member.whatsapp_num,
+      plan_name: member.plan_name,
+      amount_paid: member.amount_paid?.toString() || '',
+      expiry_date: member.expiry_date ? member.expiry_date.split('T')[0] : '',
+      created_at: member.created_at.split('T')[0],
+      status: member.status
+    });
+    setEditingMemberId(member.id);
+    setIsModalOpen(true);
+    setActiveMenuId(null);
+  };
+
+  const handleUpdateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMemberId) return;
+    setLoading(true);
+
+    const { error } = await supabase
+      .from('members')
+      .update({
+        full_name: formData.full_name,
+        email: formData.email,
+        whatsapp_num: formData.whatsapp_num,
+        plan_name: formData.plan_name,
+        amount_paid: parseFloat(formData.amount_paid) || 0,
+        status: formData.status,
+        expiry_date: formData.expiry_date ? new Date(formData.expiry_date).toISOString() : null,
+        created_at: new Date(formData.created_at).toISOString(),
+      })
+      .eq('id', editingMemberId);
+
+    if (error) {
+      alert('Failed to update member');
+    } else {
+      setIsModalOpen(false);
+      resetForm();
+      fetchMembers();
+    }
+    setLoading(false);
+  };
+
+  const deleteMember = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this member?')) return;
+    
+    const { error } = await supabase
+      .from('members')
+      .delete()
+      .eq('id', id);
+
+    if (error) alert('Delete failed');
+    else fetchMembers();
+    setActiveMenuId(null);
+  };
+
+  const renewMember = async (id: string, planName: string) => {
+    const amount = prompt("Enter renewal amount (Rs.):", planName.includes('Cardio') ? "4000" : "2000");
+    if (amount === null) return;
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 30);
+
+    const { error } = await supabase
+      .from('members')
+      .update({ 
+        status: 'active', 
+        expiry_date: expiry.toISOString(),
+        amount_paid: parseFloat(amount) || 0
+      })
+      .eq('id', id);
+
+    if (error) alert('Renewal failed');
+    else fetchMembers();
   };
 
   const verifyMember = async (id: string, planName: string) => {
@@ -290,7 +378,7 @@ export const AdminDashboard = () => {
                       )}
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 relative">
                          {member.status === 'pending' && (
                            <button 
                             onClick={() => verifyMember(member.id, member.plan_name)}
@@ -299,6 +387,16 @@ export const AdminDashboard = () => {
                              Manual Verify
                            </button>
                          )}
+                         
+                         {(member.status === 'expired' || (member.expiry_date && new Date(member.expiry_date) < new Date())) && (
+                           <button 
+                            onClick={() => renewMember(member.id, member.plan_name)}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 hover:scale-105 transition-transform"
+                           >
+                             <RefreshCcw size={12} /> Renew
+                           </button>
+                         )}
+
                          <a 
                           href={`https://wa.me/${member.whatsapp_num}`}
                           target="_blank"
@@ -306,9 +404,42 @@ export const AdminDashboard = () => {
                          >
                            <MessageCircle size={18} />
                          </a>
-                         <button className="p-2 glass border-white/10 rounded-xl text-gray-400">
-                           <MoreHorizontal size={18} />
-                         </button>
+                         
+                         <div className="relative">
+                           <button 
+                            onClick={() => setActiveMenuId(activeMenuId === member.id ? null : member.id)}
+                            className={`p-2 glass border-white/10 rounded-xl transition-colors ${activeMenuId === member.id ? 'text-benny-green bg-white/5' : 'text-gray-400'}`}
+                           >
+                             <MoreHorizontal size={18} />
+                           </button>
+                           
+                           <AnimatePresence>
+                             {activeMenuId === member.id && (
+                               <>
+                                 <div className="fixed inset-0 z-10" onClick={() => setActiveMenuId(null)} />
+                                 <motion.div 
+                                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                   className="absolute right-0 top-full mt-2 w-48 glass-dark rounded-2xl border border-white/10 p-2 z-20 shadow-2xl"
+                                 >
+                                   <button 
+                                     onClick={() => handleEditClick(member)}
+                                     className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 flex items-center gap-3 text-sm transition-colors text-gray-300"
+                                   >
+                                     <Edit2 size={16} /> Edit Entry
+                                   </button>
+                                   <button 
+                                     onClick={() => deleteMember(member.id)}
+                                     className="w-full text-left px-4 py-3 rounded-xl hover:bg-red-500/10 flex items-center gap-3 text-sm transition-colors text-red-500"
+                                   >
+                                     <Trash2 size={16} /> Delete Entry
+                                   </button>
+                                 </motion.div>
+                               </>
+                             )}
+                           </AnimatePresence>
+                         </div>
                       </div>
                     </td>
                   </tr>
@@ -337,15 +468,20 @@ export const AdminDashboard = () => {
               className="relative w-full max-w-2xl glass-dark rounded-[40px] border-white/10 p-8 md:p-12 overflow-hidden shadow-2xl"
             >
               <button 
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  resetForm();
+                }}
                 className="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors"
               >
                 <X size={24} />
               </button>
 
-              <h2 className="text-3xl font-extrabold uppercase tracking-tighter mb-8">Manual <span className="text-benny-green">Client Entry</span></h2>
+              <h2 className="text-3xl font-extrabold uppercase tracking-tighter mb-8">
+                {editingMemberId ? 'Edit' : 'Manual'} <span className="text-benny-green">Client Entry</span>
+              </h2>
 
-              <form onSubmit={handleManualEntry} className="space-y-6">
+              <form onSubmit={editingMemberId ? handleUpdateMember : handleManualEntry} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Full Name</label>
@@ -446,7 +582,7 @@ export const AdminDashboard = () => {
                   disabled={loading}
                   className="w-full btn-primary py-5 uppercase tracking-widest mt-4"
                 >
-                  {loading ? 'Processing...' : 'Register Member'}
+                  {loading ? 'Processing...' : editingMemberId ? 'Update Client Record' : 'Register Member'}
                 </button>
               </form>
             </motion.div>
