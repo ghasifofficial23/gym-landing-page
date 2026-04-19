@@ -9,9 +9,13 @@ import {
   ChevronLeft,
   Calendar,
   DollarSign,
-  MessageCircle
+  MessageCircle,
+  Plus,
+  X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -23,16 +27,51 @@ interface Member {
   expiry_date: string | null;
   goal: string;
   created_at: string;
+  amount_paid: number | null;
 }
 
 export const AdminDashboard = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    whatsapp_num: '',
+    plan_name: 'Simple Plan',
+    amount_paid: '',
+    expiry_date: '',
+    created_at: new Date().toISOString().split('T')[0],
+    status: 'active' as 'pending' | 'active' | 'expired'
+  });
+
+  const navigate = useNavigate();
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/admin/login');
+        return;
+      }
+      
+      // Strict check: Only your email can access this
+      if (session.user.email !== 'ghasifofficial23@gmail.com') {
+        await supabase.auth.signOut();
+        navigate('/admin/login', { state: { error: 'Unauthorized: Access restricted to owner only.' } });
+      }
+    };
+    checkAuth();
     fetchMembers();
-  }, []);
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/admin/login');
+  };
 
   async function fetchMembers() {
     setLoading(true);
@@ -46,7 +85,48 @@ export const AdminDashboard = () => {
     setLoading(false);
   }
 
-  const verifyMember = async (id: string) => {
+  const handleManualEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const { error } = await supabase
+      .from('members')
+      .insert([{
+        full_name: formData.full_name,
+        email: formData.email,
+        whatsapp_num: formData.whatsapp_num,
+        plan_name: formData.plan_name,
+        amount_paid: parseFloat(formData.amount_paid) || 0,
+        status: formData.status,
+        expiry_date: formData.expiry_date ? new Date(formData.expiry_date).toISOString() : null,
+        created_at: formData.created_at ? new Date(formData.created_at).toISOString() : new Date().toISOString(),
+        goal: 'Manual Entry'
+      }]);
+
+    if (error) {
+      alert('Failed to add member');
+      console.error(error);
+    } else {
+      setIsModalOpen(false);
+      setFormData({
+        full_name: '',
+        email: '',
+        whatsapp_num: '',
+        plan_name: 'Simple Plan',
+        amount_paid: '',
+        expiry_date: '',
+        created_at: new Date().toISOString().split('T')[0],
+        status: 'active'
+      });
+      fetchMembers();
+    }
+    setLoading(false);
+  };
+
+  const verifyMember = async (id: string, planName: string) => {
+    const amount = prompt("Enter amount paid (Rs.):", planName.includes('Cardio') ? "4000" : "2000");
+    if (amount === null) return;
+
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 30);
 
@@ -54,7 +134,8 @@ export const AdminDashboard = () => {
       .from('members')
       .update({ 
         status: 'active', 
-        expiry_date: expiry.toISOString() 
+        expiry_date: expiry.toISOString(),
+        amount_paid: parseFloat(amount) || 0
       })
       .eq('id', id);
 
@@ -71,7 +152,7 @@ export const AdminDashboard = () => {
     total: members.length,
     active: members.filter(m => m.status === 'active').length,
     pending: members.filter(m => m.status === 'pending').length,
-    revenue: members.filter(m => m.status === 'active').length * 2000 // Simplified
+    revenue: members.reduce((acc, m) => acc + (Number(m.amount_paid) || 0), 0)
   };
 
   return (
@@ -87,15 +168,30 @@ export const AdminDashboard = () => {
             <h1 className="text-4xl font-extrabold uppercase tracking-tighter">Gym Operations <span className="text-benny-green">Control</span></h1>
           </div>
           
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search by name or number..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-benny-green transition-colors"
-            />
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search members..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-benny-green transition-colors"
+              />
+            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary py-4 px-6 flex items-center justify-center gap-2 text-xs"
+            >
+              <Plus size={18} /> Manual Entry
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="p-4 glass border-white/10 rounded-2xl text-red-400 hover:bg-red-500/10 transition-colors"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
           </div>
         </div>
 
@@ -105,7 +201,7 @@ export const AdminDashboard = () => {
             { label: 'Total Members', value: stats.total, icon: Users, color: 'text-benny-green' },
             { label: 'Active Plans', value: stats.active, icon: CheckCircle, color: 'text-blue-400' },
             { label: 'Pending Verification', value: stats.pending, icon: Clock, color: 'text-orange-400' },
-            { label: 'Estimated Revenue', value: `Rs. ${stats.revenue}`, icon: DollarSign, color: 'text-benny-green' },
+            { label: 'Total Revenue', value: `Rs. ${stats.revenue}`, icon: DollarSign, color: 'text-benny-green' },
           ].map((stat, i) => (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -128,7 +224,7 @@ export const AdminDashboard = () => {
         {/* Members Table */}
         <div className="glass rounded-[40px] border-white/5 overflow-hidden">
           <div className="p-8 border-b border-white/5 flex justify-between items-center">
-            <h2 className="text-xl font-bold uppercase tracking-tight">Recent Applications</h2>
+            <h2 className="text-xl font-bold uppercase tracking-tight">Member Directory</h2>
             <button onClick={fetchMembers} className="text-xs font-bold uppercase tracking-widest text-benny-green hover:opacity-70">Refresh Feed</button>
           </div>
           
@@ -137,7 +233,9 @@ export const AdminDashboard = () => {
               <thead>
                 <tr className="border-b border-white/5 uppercase text-[10px] tracking-widest font-bold text-gray-500">
                   <th className="px-8 py-6">Member</th>
+                  <th className="px-8 py-6">Entry Date</th>
                   <th className="px-8 py-6">Plan</th>
+                  <th className="px-8 py-6">Paid</th>
                   <th className="px-8 py-6">Status</th>
                   <th className="px-8 py-6">Expiry</th>
                   <th className="px-8 py-6 text-right">Actions</th>
@@ -145,9 +243,9 @@ export const AdminDashboard = () => {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {loading ? (
-                  <tr><td colSpan={5} className="p-20 text-center text-gray-500">Loading data...</td></tr>
+                  <tr><td colSpan={7} className="p-20 text-center text-gray-500">Loading data...</td></tr>
                 ) : filteredMembers.length === 0 ? (
-                  <tr><td colSpan={5} className="p-20 text-center text-gray-500">No members found.</td></tr>
+                  <tr><td colSpan={7} className="p-20 text-center text-gray-500">No members found.</td></tr>
                 ) : filteredMembers.map((member) => (
                   <tr key={member.id} className="group hover:bg-white/[0.02] transition-colors">
                     <td className="px-8 py-6">
@@ -161,10 +259,16 @@ export const AdminDashboard = () => {
                         </div>
                       </div>
                     </td>
+                    <td className="px-8 py-6 text-sm text-gray-400 font-medium">
+                      {new Date(member.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
                     <td className="px-8 py-6 text-sm">
                       <div className="inline-block px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs">
                         {member.plan_name}
                       </div>
+                    </td>
+                    <td className="px-8 py-6 text-sm font-bold text-benny-green">
+                      Rs. {member.amount_paid || 0}
                     </td>
                     <td className="px-8 py-6">
                       <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded ${
@@ -189,10 +293,10 @@ export const AdminDashboard = () => {
                       <div className="flex justify-end gap-2">
                          {member.status === 'pending' && (
                            <button 
-                            onClick={() => verifyMember(member.id)}
+                            onClick={() => verifyMember(member.id, member.plan_name)}
                             className="bg-benny-green text-benny-dark px-4 py-2 rounded-xl text-xs font-bold uppercase hover:scale-105 transition-transform"
                            >
-                             Verify
+                             Manual Verify
                            </button>
                          )}
                          <a 
@@ -214,6 +318,141 @@ export const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Manual Entry Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-2xl glass-dark rounded-[40px] border-white/10 p-8 md:p-12 overflow-hidden shadow-2xl"
+            >
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <h2 className="text-3xl font-extrabold uppercase tracking-tighter mb-8">Manual <span className="text-benny-green">Client Entry</span></h2>
+
+              <form onSubmit={handleManualEntry} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Full Name</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                      placeholder="e.g. Ahmed Raza" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">WhatsApp Number</label>
+                    <input 
+                      required 
+                      type="tel" 
+                      value={formData.whatsapp_num}
+                      onChange={(e) => setFormData({...formData, whatsapp_num: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                      placeholder="03XXXXXXXXX" 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Plan</label>
+                    <select 
+                      value={formData.plan_name}
+                      onChange={(e) => setFormData({...formData, plan_name: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors appearance-none"
+                    >
+                      <option className="bg-benny-dark" value="Simple Plan">Simple Plan</option>
+                      <option className="bg-benny-dark" value="Cardio & Gym">Cardio & Gym</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Pricing / Amount Paid (Rs.)</label>
+                    <input 
+                      required 
+                      type="number" 
+                      value={formData.amount_paid}
+                      onChange={(e) => setFormData({...formData, amount_paid: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                      placeholder="e.g. 2000" 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Email Address</label>
+                    <input 
+                      type="email" 
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                      placeholder="e.g. client@email.com" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Status</label>
+                    <select 
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors appearance-none"
+                    >
+                      <option className="bg-benny-dark" value="active">Active</option>
+                      <option className="bg-benny-dark" value="pending">Pending</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Registration Date</label>
+                    <input 
+                      type="date" 
+                      value={formData.created_at}
+                      onChange={(e) => setFormData({...formData, created_at: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest font-bold text-gray-500">Expiry Date</label>
+                    <input 
+                      type="date" 
+                      value={formData.expiry_date}
+                      onChange={(e) => setFormData({...formData, expiry_date: e.target.value})}
+                      className="w-full bg-white/5 border-b border-white/10 p-4 outline-none focus:border-benny-green transition-colors" 
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full btn-primary py-5 uppercase tracking-widest mt-4"
+                >
+                  {loading ? 'Processing...' : 'Register Member'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
